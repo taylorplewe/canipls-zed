@@ -1,0 +1,20 @@
+id = "caniuse-ls"
+name = "caniuse-ls"
+version = "0.0.1"
+schema_version = 1
+authors = ["Taylor Plewe <tplewe@outlook.com>"]
+description = "Get caniuse support info right in your editor"
+repository = "https://github.com/taylorplewe/caniuse-ls-zed"
+
+[language_servers.caniuse-ls]
+name = "caniuse-ls"
+languages = [
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "TypeScript",
+    "TSX",
+    "Vue.js",
+    "Svelte",
+    "Astro",
+]
