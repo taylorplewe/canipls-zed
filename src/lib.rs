@@ -16,7 +16,7 @@ impl zed::Extension for CaniuseLs {
         _worktree: &zed_extension_api::Worktree,
     ) -> zed_extension_api::Result<zed_extension_api::Command> {
         Ok(zed::Command {
-            command: "C:\\Users\\tplew\\webroot\\caniuse-ls\\zig-out\\bin\\caniuse-ls.exe"
+            command: "C:\\Users\\TaylorPlewe\\webroot\\canipls\\zig-out\\bin\\canipls.exe"
                 .to_string(),
             args: vec![],
             env: vec![],

@@ -1,13 +1,13 @@
-id = "caniuse-ls"
-name = "caniuse-ls"
+id = "canipls"
+name = "canipls"
 version = "0.0.1"
 schema_version = 1
 authors = ["Taylor Plewe <tplewe@outlook.com>"]
 description = "Get caniuse support info right in your editor"
-repository = "https://github.com/taylorplewe/caniuse-ls-zed"
+repository = "https://github.com/taylorplewe/canipls-zed"
 
-[language_servers.caniuse-ls]
-name = "caniuse-ls"
+[language_servers.canipls]
+name = "canipls"
 languages = [
     "HTML",
     "CSS",

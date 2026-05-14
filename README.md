@@ -1,2 +1,2 @@
-# caniuse-ls-zed
-Zed extension for caniuse-ls
+# canipls-zed
+Zed extension for [canipls](https://github.com/taylorplewe/canipls)
