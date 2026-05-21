@@ -1,8 +1,8 @@
 use zed_extension_api as zed;
 
-struct CaniuseLs {}
+struct Canipls {}
 
-impl zed::Extension for CaniuseLs {
+impl zed::Extension for Canipls {
     fn new() -> Self
     where
         Self: Sized,
@@ -16,12 +16,11 @@ impl zed::Extension for CaniuseLs {
         _worktree: &zed_extension_api::Worktree,
     ) -> zed_extension_api::Result<zed_extension_api::Command> {
         Ok(zed::Command {
-            command: "C:\\Users\\TaylorPlewe\\webroot\\canipls\\zig-out\\bin\\canipls.exe"
-                .to_string(),
+            command: "C:\\Users\\tplew\\webroot\\canipls\\zig-out\\bin\\canipls.exe".to_string(),
             args: vec![],
             env: vec![],
         })
     }
 }
 
-zed::register_extension!(CaniuseLs);
+zed::register_extension!(Canipls);
