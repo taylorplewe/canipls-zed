@@ -22,12 +22,12 @@ impl SemVer {
             patch: 0,
         };
 
-        let cursor: usize = if sem_ver_string.starts_with('v') {
+        let index_after_v: usize = if sem_ver_string.starts_with('v') {
             1
         } else {
             0
         };
-        let mut it = sem_ver_string[cursor..].split('.');
+        let mut it = sem_ver_string[index_after_v..].split('.');
 
         // major
         if let Some(major_str) = it.next() {
@@ -82,7 +82,7 @@ impl Canipls {
         }
     }
 
-    fn get_canipls_exe_path(language_server_id: &zed::LanguageServerId) -> Option<String> {
+    fn get_canipls_exe_path(language_server_id: &zed::LanguageServerId) -> Result<String, String> {
         zed::set_language_server_installation_status(
             language_server_id,
             &zed::LanguageServerInstallationStatus::CheckingForUpdate,
@@ -110,57 +110,70 @@ impl Canipls {
             if let Ok(sem_ver) = SemVer::from_string(latest_release.version.as_str()) {
                 latest_sem_ver = sem_ver;
             } else {
-                _ = fs::write(
-                    "latest-read-error",
-                    format!(
-                        "GitHub release tag was not a valid semver string: \"{}\"",
-                        latest_release.version,
-                    ),
-                );
-                return None;
+                return Err(format!(
+                    "GitHub release tag was not a valid semver string: \"{}\"",
+                    latest_release.version,
+                ));
             }
         } else {
-            return None; // strange it can't find any releases at the repo
+            return Err(format!(
+                "could not get latest GitHub release from repo \"{}\"",
+                CANIPLS_REPO
+            ));
         }
 
         // compare against installed version number
-        let entries = fs::read_dir(".").ok()?;
-        for entry in entries.flatten() {
-            let file_name = entry.file_name();
-            let name_str = file_name.to_str()?;
-            if name_str.starts_with("canipls-") && entry.path().is_dir() {
-                let installed_sem_ver_str = name_str.strip_prefix("canipls-")?;
-                if let Ok(installed_sem_ver) = SemVer::from_string(installed_sem_ver_str) {
-                    if latest_sem_ver <= installed_sem_ver {
-                        should_download_latest = false;
+        match fs::read_dir(".") {
+            Ok(entries) => {
+                for entry in entries.flatten() {
+                    let file_name = entry.file_name();
+                    if let Some(name_str) = file_name.to_str() {
+                        if name_str.starts_with("canipls-") && entry.path().is_dir() {
+                            if let Some(installed_sem_ver_str) = name_str.strip_prefix("canipls-") {
+                                if let Ok(installed_sem_ver) =
+                                    SemVer::from_string(installed_sem_ver_str)
+                                {
+                                    if latest_sem_ver <= installed_sem_ver {
+                                        should_download_latest = false;
+                                    } else {
+                                        _ = fs::remove_dir(file_name);
+                                    }
+                                }
+                                break;
+                            }
+                        }
                     }
-                } else {
-                    // TODO: should have better error handling
-                    _ = fs::write(
-                        "latest-read-error",
-                        format!(
-                            "content of \"latest\" file was not a valid semver string: \"{}\"",
-                            installed_sem_ver_str,
-                        ),
-                    );
                 }
-                break;
+            }
+            Err(e) => {
+                return Err(format!(
+                    "could not read Zed canipls extension directory: {}",
+                    e
+                ))
             }
         }
 
-        if should_download_latest {
-            // os-specific stuff
-            let mut path_separator = "/";
-            let mut exe_extension = "";
-            let mut download_file_type = zed::DownloadedFileType::GzipTar;
-            if current_os == zed::Os::Windows {
-                path_separator = "\\";
-                exe_extension = ".exe";
-                download_file_type = zed::DownloadedFileType::Zip;
-            }
+        // os-specific stuff
+        let mut path_separator = "/";
+        let mut exe_extension = "";
+        let mut download_file_type = zed::DownloadedFileType::GzipTar;
+        if current_os == zed::Os::Windows {
+            path_separator = "\\";
+            exe_extension = ".exe";
+            download_file_type = zed::DownloadedFileType::Zip;
+        }
 
+        let exe_path = format!(
+            "canipls-{}{}canipls{}",
+            latest_sem_ver_str, path_separator, exe_extension
+        );
+
+        if should_download_latest {
             // find correct asset to download based on our arch & os
             let Some(asset) = latest_release.assets.iter().find(|asset| {
+                if asset.name.split('-').collect::<Vec<&str>>().len() < 4 {
+                    return false;
+                }
                 let mut it = asset.name.split('-');
                 _ = it.next(); // "canipls"
                 _ = it.next(); // (version)
@@ -178,7 +191,10 @@ impl Canipls {
 
                 false
             }) else {
-                return None;
+                return Err(format!(
+                    "could not find a canipls release with OS \"{}\" and architecture \"{}\"",
+                    current_bin_os, current_bin_arch
+                ));
             };
 
             zed::set_language_server_installation_status(
@@ -192,22 +208,17 @@ impl Canipls {
                 format!("canipls-{}", latest_sem_ver_str).as_str(),
                 download_file_type,
             ) {
-                _ = fs::write("download-error", e);
-                return None;
+                return Err(format!("could not download canipls release archive: {}", e));
             }
 
-            let exe_path = format!(
-                "canipls-{}{}canipls{}",
-                latest_sem_ver_str, path_separator, exe_extension
-            );
+            if let Err(e) = zed::make_file_executable(&exe_path) {
+                return Err(format!("could not make canipls binary executable: {}", e));
+            }
 
-            _ = zed::make_file_executable(&exe_path);
-
-            // return exe path
-            return Some(exe_path);
+            return Ok(exe_path);
         }
 
-        None
+        Ok(exe_path)
     }
 }
 
@@ -224,14 +235,13 @@ impl zed::Extension for Canipls {
         language_server_id: &zed_extension_api::LanguageServerId,
         _worktree: &zed_extension_api::Worktree,
     ) -> zed_extension_api::Result<zed_extension_api::Command> {
-        if let Some(exe_path) = Canipls::get_canipls_exe_path(language_server_id) {
-            Ok(zed::Command {
+        match Canipls::get_canipls_exe_path(language_server_id) {
+            Ok(exe_path) => Ok(zed::Command {
                 command: exe_path,
                 args: vec![],
                 env: vec![],
-            })
-        } else {
-            Err("something went wrong dawg".to_string())
+            }),
+            Err(e) => return Err(e),
         }
     }
 }
