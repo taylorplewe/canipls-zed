@@ -123,34 +123,8 @@ impl Canipls {
         }
 
         // compare against installed version number
-        match fs::read_dir(".") {
-            Ok(entries) => {
-                for entry in entries.flatten() {
-                    let file_name = entry.file_name();
-                    if let Some(name_str) = file_name.to_str() {
-                        if name_str.starts_with("canipls-") && entry.path().is_dir() {
-                            if let Some(installed_sem_ver_str) = name_str.strip_prefix("canipls-") {
-                                if let Ok(installed_sem_ver) =
-                                    SemVer::from_string(installed_sem_ver_str)
-                                {
-                                    if latest_sem_ver <= installed_sem_ver {
-                                        should_download_latest = false;
-                                    } else {
-                                        _ = fs::remove_dir(file_name);
-                                    }
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => {
-                return Err(format!(
-                    "could not read Zed canipls extension directory: {}",
-                    e
-                ))
-            }
+        if let Some(is_old) = Canipls::is_installed_version_old(latest_sem_ver) {
+            should_download_latest = is_old;
         }
 
         // os-specific stuff
@@ -163,10 +137,8 @@ impl Canipls {
             download_file_type = zed::DownloadedFileType::Zip;
         }
 
-        let exe_path = format!(
-            "canipls-{}{}canipls{}",
-            latest_sem_ver_str, path_separator, exe_extension
-        );
+        let exe_dir = format!("canipls-{}", latest_sem_ver_str);
+        let exe_path = format!("{}{}canipls{}", exe_dir, path_separator, exe_extension);
 
         if should_download_latest {
             // find correct asset to download based on our arch & os
@@ -203,11 +175,9 @@ impl Canipls {
             );
 
             // download exe (Zed takes care of extracting it for us)
-            if let Err(e) = zed::download_file(
-                &asset.download_url,
-                format!("canipls-{}", latest_sem_ver_str).as_str(),
-                download_file_type,
-            ) {
+            if let Err(e) =
+                zed::download_file(&asset.download_url, exe_dir.as_str(), download_file_type)
+            {
                 return Err(format!("could not download canipls release archive: {}", e));
             }
 
@@ -215,10 +185,41 @@ impl Canipls {
                 return Err(format!("could not make canipls binary executable: {}", e));
             }
 
+            // clear out other installed versions
+            let entries = fs::read_dir(".").map_err(|e| {
+                format!(
+                    "could not read canipls extension directory for cleanup: {}",
+                    e
+                )
+            })?;
+            for entry in entries.flatten() {
+                if entry.file_name().to_str() != Some(exe_dir.as_str()) {
+                    _ = fs::remove_dir_all(entry.path());
+                }
+            }
+
             return Ok(exe_path);
         }
 
         Ok(exe_path)
+    }
+
+    fn is_installed_version_old(latest_sem_ver: SemVer) -> Option<bool> {
+        let entries = fs::read_dir(".").ok()?;
+        for entry in entries.flatten() {
+            let file_name = entry.file_name();
+            let name_str = file_name.to_str()?;
+            if name_str.starts_with("canipls-") && entry.path().is_dir() {
+                let installed_sem_ver_str = name_str.strip_prefix("canipls-")?;
+                let installed_sem_ver = SemVer::from_string(installed_sem_ver_str).ok()?;
+                if latest_sem_ver <= installed_sem_ver {
+                    return Some(false);
+                } else {
+                    return None;
+                }
+            }
+        }
+        None
     }
 }
 
