@@ -197,8 +197,6 @@ impl Canipls {
                     _ = fs::remove_dir_all(entry.path());
                 }
             }
-
-            return Ok(exe_path);
         }
 
         Ok(exe_path)
