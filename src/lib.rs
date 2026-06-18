@@ -128,17 +128,15 @@ impl Canipls {
         }
 
         // os-specific stuff
-        let mut path_separator = "/";
         let mut exe_extension = "";
         let mut download_file_type = zed::DownloadedFileType::GzipTar;
         if current_os == zed::Os::Windows {
-            path_separator = "\\";
             exe_extension = ".exe";
             download_file_type = zed::DownloadedFileType::Zip;
         }
 
         let exe_dir = format!("canipls-{}", latest_sem_ver_str);
-        let exe_path = format!("{}{}canipls{}", exe_dir, path_separator, exe_extension);
+        let exe_path = format!("{}/canipls{}", exe_dir, exe_extension);
 
         if should_download_latest {
             // find correct asset to download based on our arch & os
