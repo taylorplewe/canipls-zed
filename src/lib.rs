@@ -153,7 +153,10 @@ impl Canipls {
                 let Some(asset_os_with_ext) = it.next() else {
                     return false;
                 };
-                let asset_os = asset_os_with_ext.split('.').next().unwrap(); // remove archive extension
+                // remove archive extension
+                let Some(asset_os) = asset_os_with_ext.split('.').next() else {
+                    return false;
+                };
 
                 if asset_arch == current_bin_arch && asset_os == current_bin_os {
                     return true;
@@ -238,7 +241,7 @@ impl zed::Extension for Canipls {
                 args: vec![],
                 env: vec![],
             }),
-            Err(e) => return Err(e),
+            Err(e) => Err(e),
         }
     }
 }
